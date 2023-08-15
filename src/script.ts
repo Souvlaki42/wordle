@@ -13,9 +13,7 @@ const alertContainer: HTMLDivElement | null = document.querySelector(
 const keyboard: HTMLDivElement | null =
 	document.querySelector("[data-keyboard]");
 
-if (!guessGrid) throw Error("Guess grid is required!");
-if (!alertContainer) throw Error("Alert container is required!");
-if (!keyboard) throw Error("Keyboard is required!");
+if (!guessGrid || !alertContainer || !keyboard) errorResponse();
 
 const offsetFromDate = new Date(2023, 0, 1);
 const msOffset = Date.now() - offsetFromDate.getTime();
@@ -34,40 +32,25 @@ function stopInteraction() {
 	document.removeEventListener("keydown", handleKeyPress);
 }
 
-function handleMouseClick(e: MouseEvent) {
-	if (!e || !e.target) return;
-	const target = e.target as HTMLElement;
+function handleMouseClick(event: MouseEvent) {
+	const target = event.target as HTMLElement;
 	if (target.matches("[data-key]")) {
 		pressKey(target.dataset.key);
-		return;
-	}
-
-	if (target.matches("[data-enter]")) {
+	} else if (target.matches("[data-enter]")) {
 		submitGuess();
-		return;
-	}
-
-	if (target.matches("[data-delete]")) {
+	} else if (target.matches("[data-delete]")) {
 		deleteKey();
-		return;
-	}
+	} else return;
 }
 
-function handleKeyPress(e: KeyboardEvent) {
-	if (e.key === "Enter") {
+function handleKeyPress(event: KeyboardEvent) {
+	if (event.key === "Enter") {
 		submitGuess();
-		return;
-	}
-
-	if (e.key === "Backspace" || e.key === "Delete") {
+	} else if (event.key === "Backspace" || event.key === "Delete") {
 		deleteKey();
-		return;
-	}
-
-	if (e.key.match(/^[a-z]$/)) {
-		pressKey(e.key);
-		return;
-	}
+	} else if (event.key.match(/^[a-z]$/)) {
+		pressKey(event.key);
+	} else return;
 }
 
 function pressKey(key: string | undefined) {
@@ -77,7 +60,7 @@ function pressKey(key: string | undefined) {
 	const nextTile: HTMLDivElement | null | undefined = guessGrid?.querySelector(
 		":not([data-letter])"
 	);
-	if (!nextTile) throw Error("Not a letter available to use!");
+	if (!nextTile) return errorResponse();
 	nextTile.dataset.letter = key.toLowerCase();
 	nextTile.textContent = key;
 	nextTile.dataset.state = "active";
@@ -130,10 +113,11 @@ function flipTile(
 	const key: HTMLButtonElement | null | undefined = keyboard?.querySelector(
 		`[data-key="${letter}"i]`
 	);
-	if (!key) throw new Error(`There is no key with that letter!, (${letter})`);
-	setTimeout(() => {
-		tile.classList.add("flip");
-	}, (index * FLIP_ANIMATION_DURATION) / 2);
+	if (!key) return errorResponse();
+	setTimeout(
+		() => tile.classList.add("flip"),
+		(index * FLIP_ANIMATION_DURATION) / 2
+	);
 
 	tile.addEventListener(
 		"transitionend",
@@ -165,6 +149,30 @@ function flipTile(
 	);
 }
 
+function shakeTiles(tiles: HTMLDivElement[]) {
+	tiles.forEach((tile) => {
+		tile.classList.add("shake");
+		tile.addEventListener(
+			"animationend",
+			() => tile.classList.remove("shake"),
+			{ once: true }
+		);
+	});
+}
+
+function danceTiles(tiles: HTMLDivElement[]) {
+	tiles.forEach((tile, index) => {
+		setTimeout(() => {
+			tile.classList.add("dance");
+			tile.addEventListener(
+				"animationend",
+				() => tile.classList.remove("dance"),
+				{ once: true }
+			);
+		}, (index * DANCE_ANIMATION_DURATION) / 5);
+	});
+}
+
 function getActiveTiles() {
 	return guessGrid?.querySelectorAll("[data-state='active']");
 }
@@ -177,36 +185,15 @@ function showAlert(message: string, duration: number | null = 1000) {
 	if (!duration) return;
 	setTimeout(() => {
 		alert.classList.add("hide");
-		alert.addEventListener("transitionend", () => alert.remove());
+		alert.addEventListener("transitionend", alert.remove);
 	}, duration);
 }
 
-function shakeTiles(tiles: HTMLDivElement[]) {
-	tiles.forEach((tile) => {
-		tile.classList.add("shake");
-		tile.addEventListener(
-			"animationend",
-			() => {
-				tile.classList.remove("shake");
-			},
-			{ once: true }
-		);
-	});
-}
-
-function danceTiles(tiles: HTMLDivElement[]) {
-	tiles.forEach((tile, index) => {
-		setTimeout(() => {
-			tile.classList.add("dance");
-			tile.addEventListener(
-				"animationend",
-				() => {
-					tile.classList.remove("dance");
-				},
-				{ once: true }
-			);
-		}, (index * DANCE_ANIMATION_DURATION) / 5);
-	});
+function errorResponse() {
+	const errorMessage = "Something went wrong!";
+	showAlert(errorMessage, null);
+	stopInteraction();
+	throw new Error(errorMessage);
 }
 
 function checkWinLose(guess: string, tiles: HTMLDivElement[]) {
